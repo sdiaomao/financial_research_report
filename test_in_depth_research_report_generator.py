@@ -31,6 +31,28 @@ def get_background():
 - 数据接口说明与免责声明见文末。
 '''
 
+desc_list = [
+    """
+    公司简介：适当精炼即可。
+    业务分布：将公司业务最新情况更新在此，包括图片（可截图）和细节描述（用表格），分为分地区业务收入和分板块的业务收入。
+    历史沿革：公司的官网或者招股书会详细的总结公司的变化，如并购、重大产品更新等，那么运用流程图+年份变化的形式是最合适的方式
+    股权结构:
+    股权激励：股权激励是公司为绑定主要的核心业务人员、技术人才的红利，实行股权激励是一项利好，意味着公司的主要架构与发展方向不会出现重大变化，劲儿往一处使
+    团队介绍：一般来讲，管理层和核心技术人员团队良好的学历背景、丰富的履历经验，一般在公司官网或招股书会披露董监高的简历情况
+    财务数据：公司的营收、净利润、毛净利率、期间费用，合同负债、应收账款等情况简要概括，用较少的图表展示详尽的信息，合理运用饼图表示比例、柱线组合图表示变化和YOY、堆积条形、堆积柱状图表示业务构成、多线图表期间费用变化。在分析财务数据时，主要笔墨放在特殊拐点或是突变的地方，并解释变化的原因。""",
+    """
+    行业规模：行业的整体规模增长是公司拥有潜力的最基本条件，也预示着有一个良好的前景。来源一般是在行业的协会、或是大型的专业行业咨询公司数据。
+    细分领域规模：细分领域则是公司所在市场的规模，其规模同企业的营收也是非常相关。
+    国家竞争格局：一般是运用饼图将现如今的市场分布以国家方式分类。
+    """,
+    "公司的核心竞争力:客户结构、专利情况、技术人才、产品特色、最新情况、发行可转债、再融资的募投项目介绍。",
+    "风险提示及盈利预测: 风险提示一般仅有4-5个小短句，盈利预测则是估值建模的内容。几大估值建模方法:现金流折现、可比公司、可比交易。首先去预测收入(分业务)，成本，折旧等情况，即每年增长的百分比，预测(2024Eexpectation)后几年的市盈率，股价情况等。",
+    "数据来源: 列明本报告所引用的主要数据来源和参考资料，确保报告的权威性和可追溯性。"
+]
+
+def get_part_desc(idx):
+    return desc_list[idx]
+
 def get_llm():
     api_key = os.environ.get("OPENAI_API_KEY")
     base_url = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
@@ -45,7 +67,19 @@ def generate_outline(llm, background, report_content):
 - 每一项为一个主要部分，每部分需包含：
   - part_title: 章节标题
   - part_desc: 本部分内容简介
-- 章节需覆盖公司基本面、财务分析、行业对比、估值与预测、治理结构、投资建议、风险提示、数据来源等。
+- 章节结构如下：
+  - 第一章 公司发展历程、主营业务、股权结构、股权激励、产品矩阵、财务数据。
+  - 第二章 公司所在行业规模、公司所在细分领域规模、上下游产业链情况、可比公司情况、公司所持有的技术的增长潜力等内容。
+  - 第三章 公司的核心竞争力:客户结构、专利情况、技术人才、产品特色、最新情况、发行可转债、再融资的募投项目介绍。
+  - 风险提示及盈利预测: 风险提示一般仅有4-5个小短句，盈利预测则是估值建模的内容。几大估值建模方法:现金流折现、可比公司、可比交易。首先去预测收入(分业务)，成本，折旧等情况，即每年增长的百分比，预测(2024Eexpectation)后几年的市盈率，股价情况等。
+  - 数据来源: 列明本报告所引用的主要数据来源和参考资料，确保报告的权威性和可追溯性。
+- 章节标题不能照抄章节结构部分，而是需要根据内容生成生动且有吸引力的标题，但是绝对不能与章节内容无关。"源杰科技"示例如下
+  - 第一章：稀缺光芯片资产，高速率产品持续放量
+  - 第二章：光芯片迭代升级，高端产品国产化空间广阔.
+  - 第三章：研发+制造能力领先，推动高端光芯片国产化
+  - 投资建议
+  - 风险提示
+
 - 只输出yaml格式的分段大纲，不要输出正文内容。
 
 【背景说明开始】
@@ -70,19 +104,33 @@ def generate_outline(llm, background, report_content):
         else:
             yaml_block = outline_list
         parts = yaml.safe_load(yaml_block)
+        
+        # 修复：确保 parts 是正确的格式
         if isinstance(parts, dict):
-            parts = list(parts.values())
+            # 如果 parts 是字典，检查其值的类型
+            if all(isinstance(v, dict) for v in parts.values()):
+                parts = list(parts.values())
+            else:
+                # 如果值是字符串，转换为正确的格式
+                parts = [{'part_title': k, 'part_desc': v} for k, v in parts.items()]
+        elif isinstance(parts, list):
+            # 如果 parts 是列表，确保每个元素都是字典
+            if parts and not isinstance(parts[0], dict):
+                # 如果列表元素是字符串，转换为字典格式
+                parts = [{'part_title': f'部分{i+1}', 'part_desc': part} for i, part in enumerate(parts)]
+        else:
+            parts = []
     except Exception as e:
         print(f"[大纲yaml解析失败] {e}")
         parts = []
     return parts
 
-def generate_section(llm, part_title, prev_content, background, report_content, is_last):
+def generate_section(llm, part_title, prev_content, background, part_desc, report_content, idx, is_last):
     section_prompt = f"""
-你是一位顶级金融分析师和研报撰写专家。请基于以下内容，直接输出\"{part_title}\"这一部分的完整研报内容。
+你是一位顶级金融分析师和研报撰写专家。请基于以下内容，直接输出"{part_title}"这一部分的完整研报内容。
 
 **重要要求：**
-1. 直接输出完整可用的研报内容，以\"## {part_title}\"开头
+1. 直接输出完整可用的研报内容，以"## {part_title}"开头
 2. 在正文中引用数据、事实、图片等信息时，适当位置插入参考资料符号（如[1][2][3]），符号需与文末引用文献编号一致
 3. **图片引用要求（务必严格遵守）：**
    - 只允许引用【财务研报汇总内容】中真实存在的图片地址（格式如：./images/图片名字.png），必须与原文完全一致。
@@ -90,7 +138,7 @@ def generate_section(llm, part_title, prev_content, background, report_content, 
    - 如需插入图片，必须先在【财务研报汇总内容】中查找，未找到则不插入图片，绝不编造图片。
    - 如引用了不存在的图片，将被判为错误输出。
 4. 不要输出任何【xxx开始】【xxx结束】等分隔符
-5. 不要输出\"建议补充\"、\"需要添加\"等提示性语言
+5. 不要输出"建议补充"、"需要添加"等提示性语言
 6. 不要编造图片地址或数据
 7. 内容要详实、专业，可直接使用
 
@@ -115,7 +163,7 @@ def generate_section(llm, part_title, prev_content, background, report_content, 
 """
     if is_last:
         section_prompt += """
-请在本节最后以“引用文献”格式，列出所有正文中用到的参考资料，格式如下：
+请在本节最后以"引用文献"格式，列出所有正文中用到的参考资料，格式如下：
 [1] 东方财富-港股-财务报表: https://emweb.securities.eastmoney.com/PC_HKF10/FinancialAnalysis/index
 [2] 同花顺-主营介绍: https://basic.10jqka.com.cn/new/000066/operate.html
 [3] 同花顺-股东信息: https://basic.10jqka.com.cn/HK0020/holder.html
@@ -265,16 +313,21 @@ def main():
     # 后续流程用 new_md_path
     report_content = load_report_content(new_md_path)
     background = get_background()
+    part_desc = get_part_desc(idx)
     llm = get_llm()
     parts = generate_outline(llm, background, report_content)
     full_report = ['# 商汤科技公司研报\n']
     prev_content = ''
     for idx, part in enumerate(parts):
-        part_title = part.get('part_title', f'部分{idx+1}')
+        # 修复：安全地获取 part_title
+        if isinstance(part, dict):
+            part_title = part.get('part_title', f'部分{idx+1}')
+        else:
+            part_title = str(part) if part else f'部分{idx+1}'
         print(f"\n===== 正在生成：{part_title} =====\n")
         is_last = (idx == len(parts) - 1)
         section_text = generate_section(
-            llm, part_title, prev_content, background, report_content, is_last
+            llm, part_title, prev_content, background, report_content, idx, is_last
         )
         full_report.append(section_text)
         print(f"\n===== 已生成：{part_title}（预览前2000字符） =====\n")
