@@ -39,19 +39,30 @@ desc_list = [
     股权结构:
     股权激励：股权激励是公司为绑定主要的核心业务人员、技术人才的红利，实行股权激励是一项利好，意味着公司的主要架构与发展方向不会出现重大变化，劲儿往一处使
     团队介绍：一般来讲，管理层和核心技术人员团队良好的学历背景、丰富的履历经验，一般在公司官网或招股书会披露董监高的简历情况
-    财务数据：公司的营收、净利润、毛净利率、期间费用，合同负债、应收账款等情况简要概括，用较少的图表展示详尽的信息，合理运用饼图表示比例、柱线组合图表示变化和YOY、堆积条形、堆积柱状图表示业务构成、多线图表期间费用变化。在分析财务数据时，主要笔墨放在特殊拐点或是突变的地方，并解释变化的原因。""",
+    财务数据：公司的营收、净利润、毛净利率、期间费用，合同负债、应收账款等情况简要概括，用较少的图表展示详尽的信息，合理运用饼图表示比例、柱线组合图表示变化和YOY、堆积条形、堆积柱状图表示业务构成、多线图表期间费用变化。在分析财务数据时，主要笔墨放在特殊拐点或是突变的地方，并解释变化的原因。
+    """,
     """
     行业规模：行业的整体规模增长是公司拥有潜力的最基本条件，也预示着有一个良好的前景。来源一般是在行业的协会、或是大型的专业行业咨询公司数据。
     细分领域规模：细分领域则是公司所在市场的规模，其规模同企业的营收也是非常相关。
     国家竞争格局：一般是运用饼图将现如今的市场分布以国家方式分类。
+    上下游产业链：界定公司所处的产业链的位置，判断是否拥有话语权，围绕“供给、需求”两个最为基准的方面，可以判断公司无论是向供应商还是向客户的议价能力，展示公司营收的稳定程度及对成本的控制能力。
+    可比公司：可比公司进行对比可以展示公司相对于其他行业内的公司的独特优势或是特殊的细分赛道布局等。一般毛利率、研发费用、资本支出、产品特点是主要可以进行对比的指标。判断公司的竞争实力，持续发展情况等的重要指标。
     """,
-    "公司的核心竞争力:客户结构、专利情况、技术人才、产品特色、最新情况、发行可转债、再融资的募投项目介绍。",
-    "风险提示及盈利预测: 风险提示一般仅有4-5个小短句，盈利预测则是估值建模的内容。几大估值建模方法:现金流折现、可比公司、可比交易。首先去预测收入(分业务)，成本，折旧等情况，即每年增长的百分比，预测(2024Eexpectation)后几年的市盈率，股价情况等。",
-    "数据来源: 列明本报告所引用的主要数据来源和参考资料，确保报告的权威性和可追溯性。"
+    """
+    客户优势：稳定、较为分散的客户群体是公司保持营收稳定核心，如果出现最大或前五大客户集中度过于高，那么一旦出现变动，则公司营收会出现大幅变动，影响公司股价。同时如果客户是业内的龙头公司，那么也可以侧面反映公司的产品十分受认可，其技术含量及质量有保证。
+    技术专利与获奖情况：技术专利等无形资产反映公司的技术硬实力，技术专利较多，获得的奖项含金量高，也能体现公司的研发水准。
+    在研项目：在研项目将演变为公司后续推出的新产品，新业务，当在研项目取得重大进展时，则对公司的收入具有较大利好。
+    募投扩产：企业发行可转债、专项债券、募集配套资金完成某些产线或项目的建设，在达产后，也能助于公司业务成熟度提升，体量增大。
+    """,
+    "风险提示及盈利预测: 风险提示一般仅有4-5个小短句，盈利预测则是估值建模的内容。几大估值建模方法:现金流折现、可比公司、可比交易。首先去预测收入(分业务)，成本，折旧等情况，即每年增长的百分比，预测后几年的市盈率，股价情况等。",
+    
 ]
 
 def get_part_desc(idx):
-    return desc_list[idx]
+    if 0 <= idx < len(desc_list):
+        return desc_list[idx] or ''
+    else:
+        return ''
 
 def get_llm():
     api_key = os.environ.get("OPENAI_API_KEY")
@@ -125,7 +136,7 @@ def generate_outline(llm, background, report_content):
         parts = []
     return parts
 
-def generate_section(llm, part_title, prev_content, background, part_desc, report_content, idx, is_last):
+def generate_section(llm, part_title, prev_content, background, part_desc, report_content, is_last):
     section_prompt = f"""
 你是一位顶级金融分析师和研报撰写专家。请基于以下内容，直接输出"{part_title}"这一部分的完整研报内容。
 
@@ -147,8 +158,11 @@ def generate_section(llm, part_title, prev_content, background, part_desc, repor
 - 主营业务信息标注：（数据来源：同花顺-主营介绍[2]）
 - 股东结构信息标注：（数据来源：同花顺-股东信息网页爬虫[3]）
 
-【本次任务】
+【本次任务标题】
 {part_title}
+
+【本次任务描述】
+{part_desc}
 
 【已生成前文】
 {prev_content}
@@ -313,12 +327,12 @@ def main():
     # 后续流程用 new_md_path
     report_content = load_report_content(new_md_path)
     background = get_background()
-    part_desc = get_part_desc(idx)
     llm = get_llm()
     parts = generate_outline(llm, background, report_content)
     full_report = ['# 商汤科技公司研报\n']
     prev_content = ''
     for idx, part in enumerate(parts):
+        part_desc = get_part_desc(idx)
         # 修复：安全地获取 part_title
         if isinstance(part, dict):
             part_title = part.get('part_title', f'部分{idx+1}')
@@ -327,7 +341,7 @@ def main():
         print(f"\n===== 正在生成：{part_title} =====\n")
         is_last = (idx == len(parts) - 1)
         section_text = generate_section(
-            llm, part_title, prev_content, background, report_content, idx, is_last
+            llm, part_title, prev_content, background, part_desc, report_content, is_last
         )
         full_report.append(section_text)
         print(f"\n===== 已生成：{part_title}（预览前2000字符） =====\n")
