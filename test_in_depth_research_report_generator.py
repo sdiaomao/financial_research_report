@@ -45,7 +45,7 @@ desc_list = [
     行业规模：行业的整体规模增长是公司拥有潜力的最基本条件，也预示着有一个良好的前景。来源一般是在行业的协会、或是大型的专业行业咨询公司数据。
     细分领域规模：细分领域则是公司所在市场的规模，其规模同企业的营收也是非常相关。
     国家竞争格局：一般是运用饼图将现如今的市场分布以国家方式分类。
-    上下游产业链：界定公司所处的产业链的位置，判断是否拥有话语权，围绕“供给、需求”两个最为基准的方面，可以判断公司无论是向供应商还是向客户的议价能力，展示公司营收的稳定程度及对成本的控制能力。
+    上下游产业链：界定公司所处的产业链的位置，判断是否拥有话语权，围绕"供给、需求"两个最为基准的方面，可以判断公司无论是向供应商还是向客户的议价能力，展示公司营收的稳定程度及对成本的控制能力。
     可比公司：可比公司进行对比可以展示公司相对于其他行业内的公司的独特优势或是特殊的细分赛道布局等。一般毛利率、研发费用、资本支出、产品特点是主要可以进行对比的指标。判断公司的竞争实力，持续发展情况等的重要指标。
     """,
     """
@@ -58,7 +58,7 @@ desc_list = [
     
 ]
 
-def get_part_desc(idx):
+def get_part_content(idx):
     if 0 <= idx < len(desc_list):
         return desc_list[idx] or ''
     else:
@@ -109,28 +109,87 @@ def generate_outline(llm, background, report_content):
     )
     print("\n===== 生成的分段大纲如下 =====\n")
     print(outline_list)
+    
+    parts = []
     try:
+        # 提取YAML内容
         if '```yaml' in outline_list:
             yaml_block = outline_list.split('```yaml')[1].split('```')[0]
+        elif '```' in outline_list:
+            # 处理没有yaml标识的情况
+            yaml_block = outline_list.split('```')[1].split('```')[0]
         else:
-            yaml_block = outline_list
-        parts = yaml.safe_load(yaml_block)
+            yaml_block = outline_list.strip()
         
-        # 修复：确保 parts 是正确的格式
-        if isinstance(parts, dict):
-            # 如果 parts 是字典，检查其值的类型
-            if all(isinstance(v, dict) for v in parts.values()):
-                parts = list(parts.values())
+        # 尝试解析YAML
+        parsed_data = yaml.safe_load(yaml_block)
+        
+        # 处理不同的YAML格式
+        if isinstance(parsed_data, list):
+            # 标准列表格式
+            parts = parsed_data
+        elif isinstance(parsed_data, dict):
+            # 检查是否是字典格式
+            if all(isinstance(v, dict) and 'part_title' in v and 'part_desc' in v for v in parsed_data.values()):
+                # 字典值包含完整结构
+                parts = list(parsed_data.values())
+            elif all(isinstance(v, str) for v in parsed_data.values()):
+                # 字典值是字符串，转换为标准格式
+                parts = []
+                for i, (key, value) in enumerate(parsed_data.items()):
+                    if key == 'part_title':
+                        # 如果遇到单独的part_title，寻找对应的part_desc
+                        if i + 1 < len(parsed_data.items()):
+                            next_key, next_value = list(parsed_data.items())[i + 1]
+                            if next_key == 'part_desc':
+                                parts.append({'part_title': value, 'part_desc': next_value})
+                            else:
+                                parts.append({'part_title': value, 'part_desc': ''})
+                        else:
+                            parts.append({'part_title': value, 'part_desc': ''})
+                    elif key == 'part_desc' and i > 0:
+                        # 如果遇到单独的part_desc，检查前一个是否是part_title
+                        prev_key, prev_value = list(parsed_data.items())[i - 1]
+                        if prev_key == 'part_title':
+                            # 更新前一个条目
+                            if parts:
+                                parts[-1]['part_desc'] = value
+                            else:
+                                parts.append({'part_title': prev_value, 'part_desc': value})
+                        else:
+                            parts.append({'part_title': f'部分{len(parts)+1}', 'part_desc': value})
+                    elif key not in ['part_title', 'part_desc']:
+                        # 其他键值对，作为标题
+                        parts.append({'part_title': key, 'part_desc': value})
             else:
-                # 如果值是字符串，转换为正确的格式
-                parts = [{'part_title': k, 'part_desc': v} for k, v in parts.items()]
-        elif isinstance(parts, list):
-            # 如果 parts 是列表，确保每个元素都是字典
-            if parts and not isinstance(parts[0], dict):
-                # 如果列表元素是字符串，转换为字典格式
-                parts = [{'part_title': f'部分{i+1}', 'part_desc': part} for i, part in enumerate(parts)]
+                # 其他字典格式，尝试转换为列表
+                parts = []
+                for key, value in parsed_data.items():
+                    if isinstance(value, dict):
+                        if 'part_title' in value and 'part_desc' in value:
+                            parts.append(value)
+                        else:
+                            parts.append({'part_title': key, 'part_desc': str(value)})
+                    else:
+                        parts.append({'part_title': key, 'part_desc': str(value)})
         else:
+            # 其他格式，使用默认描述
             parts = []
+            
+        # 验证和清理parts
+        cleaned_parts = []
+        for i, part in enumerate(parts):
+            if isinstance(part, dict):
+                title = part.get('part_title', f'部分{i+1}')
+                desc = part.get('part_desc', '')
+            else:
+                title = str(part) if part else f'部分{i+1}'
+                desc = desc_list[i] if i < len(desc_list) else ''
+            
+            cleaned_parts.append({'part_title': title, 'part_desc': desc})
+        
+        parts = cleaned_parts
+        
     except Exception as e:
         print(f"[大纲yaml解析失败] {e}")
         parts = []
@@ -215,7 +274,8 @@ def convert_to_docx(output_file, docx_output="Company_Research_Report.docx"):
             docx_output,
             "--standalone",
             "--resource-path=.",
-            "--extract-media=."
+            "--extract-media=.",
+            "--reference-doc=template.docx"
         ]
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
@@ -332,7 +392,7 @@ def main():
     full_report = ['# 商汤科技公司研报\n']
     prev_content = ''
     for idx, part in enumerate(parts):
-        part_desc = get_part_desc(idx)
+        part_desc = get_part_content(idx)   
         # 修复：安全地获取 part_title
         if isinstance(part, dict):
             part_title = part.get('part_title', f'部分{idx+1}')
