@@ -12,7 +12,7 @@ import re
 import shutil
 import requests
 from urllib.parse import urlparse
-from utils import save_markdown, format_markdown, convert_to_docx, extract_images_from_markdown
+from utils import save_markdown, format_markdown, convert_to_docx, extract_images_from_markdown, create_markdown_toc
 
 def load_report_content(md_path):
     with open(md_path, "r", encoding="utf-8") as f:
@@ -372,7 +372,13 @@ def main():
     llm = get_llm()
     # parts 是一个列表，内含 dict：{'一级标题': str, '二级标题': [ {'title': str, 'desc': str}, ... ]}
     parts = generate_outline(llm, background, report_content)
-    full_report = ['# 商汤科技公司研报\n']
+
+    # ====== 为Markdown创建目录 ======
+    toc = create_markdown_toc(parts)
+    print(toc)
+
+    # ====== 初始化报告内容，添加标题、摘要和目录 ======
+    full_report = [f"# 商汤科技公司研报\n\n{toc}"]
     prev_content = ''
     # 计算所有小节总数，方便判断最后一个
     total_sections = sum(len(p['二级标题']) for p in parts)

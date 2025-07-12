@@ -74,6 +74,31 @@ def copy_image(src, dst):
         print(f"[复制失败] {src}: {e}")
         return False
 
+def slugify(text):
+    """将标题转为Markdown锚点格式"""
+    # 移除特殊字符，替换空格和多余符号为短横线
+    slug = text.lower()
+    slug = re.sub(r'[^\w\s-]', '', slug)  # 移除标点
+    slug = re.sub(r'\s+', '-', slug)      # 空白转短横线
+    return slug
+
+def create_markdown_toc(parts):
+    """为Markdown文件基于一级/二级标题创建目录"""
+    toc_lines = ["# 目录", ""]
+    for part in parts:
+        first = part.get('一级标题', '')
+        if first:
+            first_anchor = slugify(first)
+            toc_lines.append(f"- [{first}](#{first_anchor})")
+            # 添加二级标题
+            for sub in part.get('二级标题', []):
+                second = sub.get('title', '')
+                if second:
+                    second_anchor = slugify(second)
+                    toc_lines.append(f"  - [{second}](#{second_anchor})")
+    toc_lines.append("")  # 空行分隔目录和正文
+    return "\n".join(toc_lines)
+
 def extract_images_from_markdown(md_path, images_dir, new_md_path):
     ensure_dir(images_dir)
     with open(md_path, 'r', encoding='utf-8') as f:
