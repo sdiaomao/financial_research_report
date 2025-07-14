@@ -330,8 +330,6 @@ def generate_section(llm, first_title, second_title, prev_content, background, r
 【本次任务描述】
 {part_desc}
 
-【本次任务描述】
-{part_desc}
 
 【已生成前文】
 {prev_content}
