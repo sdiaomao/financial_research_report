@@ -382,7 +382,7 @@ def main():
     print(toc)
 
     # ====== 初始化报告内容，添加标题、摘要和目录 ======
-    full_report = [f"# 商汤科技公司研报\n\n{toc}"]
+    full_report = [toc]  # 不要加 "# 商汤科技公司研报"
     prev_content = ''
     # 计算所有小节总数，方便判断最后一个
     total_sections = sum(len(p['二级标题']) for p in parts)
@@ -421,11 +421,29 @@ def main():
             print(section_text[:2000])
             print("\n===== 本小节内容结束 =====\n")
             prev_content = '\n'.join(full_report)
-    final_report = '\n\n'.join(full_report)
+
+    # ====== 用LLM生成摘要，并插入到报告最前面 ======
+    try:
+        summary_prompt = (
+            "请对以下财务研报内容进行专业总结，生成几段完整的、200-300字的中文摘要段落，突出核心结论、主要数据和投资建议。要求：摘要必须是连续的段落，不要使用项目符号或子标题。\n\n"
+        )
+        final_report = '\n\n'.join(full_report)
+        summary = llm.call(summary_prompt + final_report, max_tokens=1024)
+        # 摘要后分页，目录后分页
+        page_break = "<div style=\"page-break-after: always;\"></div>\n\n"
+        # toc 就是 full_report[0]
+        toc = full_report[0]
+        rest_content = '\n\n'.join(full_report[1:])
+        final_report_with_summary = f"# 商汤科技公司研报\n\n## 摘要\n{summary}{page_break}{toc}{page_break}{rest_content}"
+    except Exception as e:
+        print(f"⚠️ 摘要生成失败，报告将无摘要: {e}")
+        final_report_with_summary = f"# 商汤科技公司研报\n\n" + final_report
+
     output_file = f"深度财务研报分析_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
-    save_markdown(final_report, output_file)
+    docx_output = f"深度财务研报分析_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
+    save_markdown(final_report_with_summary, output_file)
     format_markdown(output_file)
-    convert_to_docx(output_file)
+    convert_to_docx(output_file, docx_output)
 
 if __name__ == "__main__":
     main()

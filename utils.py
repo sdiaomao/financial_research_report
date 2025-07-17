@@ -34,7 +34,9 @@ def convert_to_docx(output_file, docx_output="Company_Research_Report.docx"):
             "--standalone",
             "--resource-path=.",
             "--extract-media=.",
-            "--reference-doc=template.docx"
+            "--reference-doc=template.docx",
+            "--from", "markdown+raw_html",
+            "--to", "docx"
         ]
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = 'utf-8'
